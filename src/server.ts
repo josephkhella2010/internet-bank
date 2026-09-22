@@ -12,6 +12,8 @@ app.use(express.json());
 
 // Zod schemas
 
+// transationSchema
+
 const transactionSchema = z.object({
   id: z.number(),
   date: z.string(),
@@ -20,6 +22,14 @@ const transactionSchema = z.object({
 });
 
 const transactionsSchema = z.array(transactionSchema);
+
+const createTransactionSchema = z.object({
+  date: z.string(),
+  recipient: z.string().min(1),
+  amount: z.number(),
+});
+
+// classification schema
 
 const classificationSchema = z.object({
   recipient: z.string().min(1),
@@ -37,13 +47,17 @@ app.get("/transactions", (req, res) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid transaction data",
+        error: result.error,
       });
     }
 
-    return res.status(200).json(result.data);
+    return res.status(200).json({
+      message: "successfully get all transtions",
+      translations: result.data,
+    });
   } catch (error: unknown) {
     return res.status(500).json({
-      message: "Something went wrong",
+      message: "Something went wrong with get all transtions",
     });
   }
 });
@@ -57,17 +71,54 @@ app.get("/transactions/:id", (req, res) => {
     const findId = transactions.find((tra) => Number(tra.id) === id);
 
     const result = transactionSchema.safeParse(findId);
+    const results = transactionsSchema.safeParse(transactions);
 
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid transaction data",
+        error: result.error,
       });
     }
 
-    return res.status(200).json(result.data);
+    return res.status(200).json({
+      message: "successfully get transtion",
+      transtion: result.data,
+      transtions: results.data,
+    });
   } catch (error: unknown) {
     return res.status(500).json({
-      message: "Something went wrong",
+      message: "Something went wrong with get transtion",
+    });
+  }
+});
+
+// post transaction by ID
+
+app.post("/transactions/", (req, res) => {
+  try {
+    const result = createTransactionSchema.safeParse(req.body);
+    const results = transactionsSchema.safeParse(transactions);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid transaction data",
+        error: result.error,
+      });
+    }
+    const newTransaction = {
+      ...result.data,
+      id: transactions.length + 1,
+    };
+    transactions.push(newTransaction);
+
+    return res.status(201).json({
+      message: "successfully added transtions",
+      transtion: newTransaction,
+      transtions: results.data,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      message: "Something went wrong with post request transtion",
     });
   }
 });
@@ -81,6 +132,7 @@ app.get("/classifications", (req, res) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid classification data",
+        transtions: result.data,
       });
     }
 
