@@ -4,11 +4,91 @@
     "classification": "Food"
   },
   {
+    "recipient": "Coop",
+    "classification": "Food"
+  },
+  {
+    "recipient": "Willys",
+    "classification": "Food"
+  },
+  {
+    "recipient": "Hemköp",
+    "classification": "Food"
+  },
+  {
+    "recipient": "McDonalds",
+    "classification": "Food"
+  },
+  {
+    "recipient": "MAX",
+    "classification": "Food"
+  },
+  {
     "recipient": "SL",
+    "classification": "Transport"
+  },
+  {
+    "recipient": "SJ",
+    "classification": "Transport"
+  },
+  {
+    "recipient": "Uber",
+    "classification": "Transport"
+  },
+  {
+    "recipient": "Taxi Stockholm",
+    "classification": "Transport"
+  },
+  {
+    "recipient": "Circle K",
     "classification": "Transport"
   },
   {
     "recipient": "Netflix",
     "classification": "Entertainment"
+  },
+  {
+    "recipient": "Spotify",
+    "classification": "Entertainment"
+  },
+  {
+    "recipient": "Disney+",
+    "classification": "Entertainment"
+  },
+  {
+    "recipient": "YouTube",
+    "classification": "Entertainment"
+  },
+  {
+    "recipient": "Steam",
+    "classification": "Entertainment"
+  },
+  {
+    "recipient": "SF Bio",
+    "classification": "Entertainment"
+  },
+  {
+    "recipient": "IKEA",
+    "classification": "Household"
+  },
+  {
+    "recipient": "Clas Ohlson",
+    "classification": "Household"
+  },
+  {
+    "recipient": "Jula",
+    "classification": "Household"
+  },
+  {
+    "recipient": "Rusta",
+    "classification": "Household"
+  },
+  {
+    "recipient": "Elgiganten",
+    "classification": "Household"
+  },
+  {
+    "recipient": "Apoteket",
+    "classification": "Household"
   }
 ]

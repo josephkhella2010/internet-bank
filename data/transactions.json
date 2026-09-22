@@ -4,5 +4,89 @@
     "date": "2026-09-01",
     "recipient": "ICA",
     "amount": -350
+  },
+  {
+    "id": 2,
+    "date": "2026-09-02",
+    "recipient": "SL",
+    "amount": -120
+  },
+  {
+    "id": 3,
+    "date": "2026-09-03",
+    "recipient": "Netflix",
+    "amount": -149
+  },
+  {
+    "id": 4,
+    "date": "2026-09-03",
+    "recipient": "Employer",
+    "amount": 30000
+  },
+  {
+    "id": 5,
+    "date": "2026-09-04",
+    "recipient": "ICA",
+    "amount": -275
+  },
+  {
+    "id": 6,
+    "date": "2026-09-05",
+    "recipient": "SL",
+    "amount": -95
+  },
+  {
+    "id": 7,
+    "date": "2026-09-06",
+    "recipient": "Netflix",
+    "amount": -149
+  },
+  {
+    "id": 8,
+    "date": "2026-09-07",
+    "recipient": "ICA",
+    "amount": -430
+  },
+  {
+    "id": 9,
+    "date": "2026-09-08",
+    "recipient": "Spotify",
+    "amount": -119
+  },
+  {
+    "id": 10,
+    "date": "2026-09-09",
+    "recipient": "Unknown Shop",
+    "amount": -250
+  },
+  {
+    "id": 11,
+    "date": "2026-09-10",
+    "recipient": "Employer",
+    "amount": 30000
+  },
+  {
+    "id": 12,
+    "date": "2026-09-11",
+    "recipient": "SL",
+    "amount": -150
+  },
+  {
+    "id": 13,
+    "date": "2026-09-12",
+    "recipient": "ICA",
+    "amount": -520
+  },
+  {
+    "id": 14,
+    "date": "2026-09-13",
+    "recipient": "Netflix",
+    "amount": -149
+  },
+  {
+    "id": 15,
+    "date": "2026-09-14",
+    "recipient": "Spotify",
+    "amount": -119
   }
 ]
