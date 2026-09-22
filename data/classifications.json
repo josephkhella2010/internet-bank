@@ -1,0 +1,14 @@
+[
+  {
+    "recipient": "ICA",
+    "classification": "Food"
+  },
+  {
+    "recipient": "SL",
+    "classification": "Transport"
+  },
+  {
+    "recipient": "Netflix",
+    "classification": "Entertainment"
+  }
+]
