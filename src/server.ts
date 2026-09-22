@@ -122,6 +122,47 @@ app.post("/transactions/", (req, res) => {
     });
   }
 });
+//  update put transaction by ID
+
+app.put("/transactions/:id", (req, res) => {
+  try {
+    const fields = createTransactionSchema.safeParse(req.body);
+    const id = Number(req.params.id);
+
+    const findIndex = transactions.findIndex((tra) => Number(tra.id) === id);
+
+    if (findIndex === -1) {
+      return res.status(404).json({
+        message: "Transaction not found",
+      });
+    }
+    if (!fields.success) {
+      return res.status(400).json({
+        message: "Invalid transaction data",
+        error: fields.error,
+      });
+    }
+    transactions[findIndex] = {
+      id: transactions[findIndex]!.id,
+      date: fields.data.date,
+      recipient: fields.data.recipient,
+      amount: fields.data.amount,
+    };
+    const result = createTransactionSchema.safeParse(transactions[findIndex]);
+
+    const results = transactionsSchema.safeParse(transactions);
+
+    return res.status(200).json({
+      message: "successfully updataed transtions",
+      transtion: result.data,
+      transtions: results.data,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      message: "Something went wrong with update request transtion",
+    });
+  }
+});
 
 // Get all classifications
 
