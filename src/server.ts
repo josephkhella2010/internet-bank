@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import dotenv from "dotenv";
-import { transactions, classifications } from "./data.js";
+import { classifications, transaction } from "./data.js";
 
 dotenv.config();
 
@@ -9,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+let transactions = transaction;
 
 // Zod schemas
 
@@ -160,6 +162,46 @@ app.put("/transactions/:id", (req, res) => {
   } catch (error: unknown) {
     return res.status(500).json({
       message: "Something went wrong with update request transtion",
+    });
+  }
+});
+// delete transaction by ID
+
+app.delete("/transactions/:id", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const findId = transactions.find((tra) => Number(tra.id) === id);
+
+    if (!findId) {
+      return res.status(404).json({
+        message: "Transaction not found",
+      });
+    }
+
+    const result = transactionSchema.safeParse(findId);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid transaction data",
+        error: result.error,
+      });
+    }
+
+    const filteredTranstion = transactions.filter(
+      (tra) => Number(tra.id) !== id,
+    );
+
+    transactions = filteredTranstion;
+
+    return res.status(200).json({
+      message: "successfully deleted transaction",
+      transaction: result.data,
+      transactions: transactions,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      message: "Something went wrong with delete request transaction",
     });
   }
 });
