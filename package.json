@@ -1,0 +1,24 @@
+{
+  "name": "internet-bank",
+  "version": "1.0.0",
+  "description": "Internet Bank Transaction App: Express API + terminal app",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --exec tsx src/server.ts",
+    "cli": "tsx src/cli.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "dotenv": "^18.0.3",
+    "express": "^4.22.3",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
