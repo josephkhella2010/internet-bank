@@ -20,29 +20,25 @@ type ApiResponse = {
   transtion?: Transaction;
 };
 
-// -----------------------------
 // Helper: Check Date
-// -----------------------------
 
-function isValidDate(date: string): boolean {
-  const regex = /^\d{4}-\d{2}-\d{2}$/;
-
-  if (!regex.test(date)) {
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
 
-  const parsedDate = new Date(`${date}T00:00:00`);
+  const parts = value.split("-");
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return false;
-  }
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
 
-  const [year, month, day] = date.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
 
   return (
-    parsedDate.getFullYear() === year &&
-    parsedDate.getMonth() + 1 === month &&
-    parsedDate.getDate() === day
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
   );
 }
 
@@ -368,7 +364,6 @@ async function filterTransactions(): Promise<void> {
 
   const from = await input({
     message: "From date (YYYY-MM-DD):",
-
     validate(value) {
       if (!value.trim()) {
         return "Start date is required";
@@ -384,7 +379,6 @@ async function filterTransactions(): Promise<void> {
 
   const to = await input({
     message: "To date (YYYY-MM-DD):",
-
     validate(value) {
       if (!value.trim()) {
         return "End date is required";
@@ -404,37 +398,38 @@ async function filterTransactions(): Promise<void> {
 
   try {
     const url =
-      `${API_URL}/transactions` +
+      `${API_URL}/filter` +
       `?from=${encodeURIComponent(from)}` +
       `&to=${encodeURIComponent(to)}`;
+
+    console.log("Request:", url);
 
     const response = await fetch(url);
 
     const data: ApiResponse = await response.json();
 
+    console.log("API response:", data);
+
     if (!response.ok) {
       console.log(`\n❌ ${data.message ?? "Could not filter transactions"}\n`);
-
       return;
     }
 
-    const transactions = data.transactions ?? data.translations ?? [];
+    const transactions = data.transactions ?? [];
 
     console.log(`\n=== Transactions from ${from} to ${to} ===\n`);
 
     if (transactions.length === 0) {
       console.log("No transactions found in this date range.\n");
-
       return;
     }
 
     console.table(transactions);
-  } catch {
+  } catch (error) {
     console.log("\n❌ Could not connect to the API.");
     console.log("Make sure your Express server is running.\n");
   }
 }
-
 // 7. Main Menu
 
 async function main(): Promise<void> {

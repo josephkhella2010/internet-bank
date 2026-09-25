@@ -227,6 +227,49 @@ app.get("/classifications", (req, res) => {
   }
 });
 
+// Filter transactions by date
+
+app.get("/filter", (req, res) => {
+  try {
+    const { from, to } = req.query;
+
+    if (typeof from !== "string" || typeof to !== "string") {
+      return res.status(400).json({
+        message: "From date and to date are required",
+      });
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (!dateRegex.test(from) || !dateRegex.test(to)) {
+      return res.status(400).json({
+        message: "Date must be in YYYY-MM-DD format",
+      });
+    }
+
+    if (from > to) {
+      return res.status(400).json({
+        message: "From date cannot be after to date",
+      });
+    }
+
+    const filteredTransactions = transactions.filter((tra) => {
+      return tra.date >= from && tra.date <= to;
+    });
+
+    console.log("Filtered:", filteredTransactions);
+
+    return res.status(200).json({
+      message: "Successfully filtered transactions",
+      transactions: filteredTransactions,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went wrong while filtering transactions",
+    });
+  }
+});
+
 // Start server
 
 app.listen(PORT, () => {
