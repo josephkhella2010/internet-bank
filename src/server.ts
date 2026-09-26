@@ -12,6 +12,27 @@ app.use(express.json());
 
 let transactions = transaction;
 
+function addClassification(tra: { recipient: string; amount: number }) {
+  let classification = null;
+
+  if (tra.amount < 0) {
+    const match = classifications.find((item) => {
+      return item.recipient.toLowerCase() === tra.recipient.toLowerCase();
+    });
+
+    if (match) {
+      classification = match.classification;
+    } else {
+      classification = "Unknown";
+    }
+  }
+
+  return {
+    ...tra,
+    classification,
+  };
+}
+
 // Zod schemas
 
 // transationSchema
@@ -55,7 +76,7 @@ app.get("/transactions", (req, res) => {
 
     return res.status(200).json({
       message: "successfully get all transtions",
-      translations: result.data,
+      translations: result.data.map((tra) => addClassification(tra)),
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -84,8 +105,8 @@ app.get("/transactions/:id", (req, res) => {
 
     return res.status(200).json({
       message: "successfully get transtion",
-      transtion: result.data,
-      transtions: results.data,
+      transtion: addClassification(result.data),
+      transtions: results.data.map((tra) => addClassification(tra)),
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -115,7 +136,7 @@ app.post("/transactions/", (req, res) => {
 
     return res.status(201).json({
       message: "successfully added transtions",
-      transtion: newTransaction,
+      transtion: addClassification(newTransaction),
       transtions: results.data,
     });
   } catch (error: unknown) {
@@ -150,13 +171,12 @@ app.put("/transactions/:id", (req, res) => {
       recipient: fields.data.recipient,
       amount: fields.data.amount,
     };
-    const result = createTransactionSchema.safeParse(transactions[findIndex]);
 
     const results = transactionsSchema.safeParse(transactions);
 
     return res.status(200).json({
       message: "successfully updataed transtions",
-      transtion: result.data,
+      transtion: addClassification(transactions[findIndex]),
       transtions: results.data,
     });
   } catch (error: unknown) {
@@ -196,8 +216,8 @@ app.delete("/transactions/:id", (req, res) => {
 
     return res.status(200).json({
       message: "successfully deleted transaction",
-      transaction: result.data,
-      transactions: transactions,
+      transaction: addClassification(result.data),
+      transactions: transactions.map((tra) => addClassification(tra)),
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -261,11 +281,51 @@ app.get("/filter", (req, res) => {
 
     return res.status(200).json({
       message: "Successfully filtered transactions",
-      transactions: filteredTransactions,
+      transactions: filteredTransactions.map((tra) => addClassification(tra)),
     });
   } catch (error) {
     return res.status(500).json({
       message: "Something went wrong while filtering transactions",
+    });
+  }
+});
+
+app.get("/spending", (req, res) => {
+  try {
+    const categories = [
+      "Household",
+      "Transport",
+      "Food",
+      "Entertainment",
+      "Unknown",
+    ];
+
+    const spending: { classification: string; total: number }[] = [];
+
+    for (const category of categories) {
+      let total = 0;
+
+      for (const tra of transactions) {
+        const classified = addClassification(tra);
+
+        if (classified.classification === category) {
+          total = total + Math.abs(tra.amount);
+        }
+      }
+
+      spending.push({
+        classification: category,
+        total,
+      });
+    }
+
+    return res.status(200).json({
+      message: "spending per category",
+      spending,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      message: "Something went wrong with spending",
     });
   }
 });

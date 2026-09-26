@@ -18,6 +18,7 @@ type ApiResponse = {
 
   translations?: Transaction[];
   transtion?: Transaction;
+  spending?: { classification: string; total: number }[];
 };
 
 // Helper: Check Date
@@ -430,6 +431,34 @@ async function filterTransactions(): Promise<void> {
     console.log("Make sure your Express server is running.\n");
   }
 }
+
+async function viewSpending(): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/spending`);
+
+    const data: ApiResponse = await response.json();
+
+    if (!response.ok) {
+      console.log(`\n❌ ${data.message ?? "Something went wrong"}\n`);
+      return;
+    }
+
+    const spending = data.spending ?? [];
+
+    console.log("\n=== Spending per category ===\n");
+
+    if (spending.length === 0) {
+      console.log("No spending found.\n");
+      return;
+    }
+
+    console.table(spending);
+  } catch {
+    console.log("\n❌ Could not connect to the API.");
+    console.log("Make sure your Express server is running.\n");
+  }
+}
+
 // 7. Main Menu
 
 async function main(): Promise<void> {
@@ -476,6 +505,11 @@ async function main(): Promise<void> {
           },
 
           {
+            name: "Spending per category",
+            value: "spending",
+          },
+
+          {
             name: "Exit",
             value: "exit",
           },
@@ -505,6 +539,10 @@ async function main(): Promise<void> {
 
         case "filter":
           await filterTransactions();
+          break;
+
+        case "spending":
+          await viewSpending();
           break;
 
         case "exit":
