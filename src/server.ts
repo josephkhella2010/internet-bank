@@ -86,7 +86,6 @@ app.get("/transactions", (req, res) => {
 });
 
 // Get transaction by ID
-
 app.get("/transactions/:id", (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -100,6 +99,13 @@ app.get("/transactions/:id", (req, res) => {
       return res.status(400).json({
         message: "Invalid transaction data",
         error: result.error,
+      });
+    }
+
+    if (!results.success) {
+      return res.status(400).json({
+        message: "Invalid transactions data",
+        error: results.error,
       });
     }
 
@@ -239,13 +245,9 @@ app.get("/classifications", (req, res) => {
       });
     }
 
-    return res.status(200).json([
-      "Household",
-      "Transport",
-      "Food",
-      "Entertainment",
-      "Unknown",
-    ]);
+    return res
+      .status(200)
+      .json(["Household", "Transport", "Food", "Entertainment", "Unknown"]);
   } catch (error: unknown) {
     return res.status(500).json({
       message: "Something went wrong",

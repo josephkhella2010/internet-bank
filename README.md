@@ -1,4 +1,5 @@
 # Internet Bank
+
 A small internet-bank application for a single savings account, built as a REST API with a terminal client on top of it.
 
 - **API**: Express + TypeScript, serving JSON over HTTP.
@@ -8,8 +9,8 @@ A small internet-bank application for a single savings account, built as a REST 
 
 ## Requirements
 
-* Node.js
-* npm
+- Node.js
+- npm
 
 ## Run the project
 
@@ -22,7 +23,7 @@ npm run dev
 The server will run on:
 
 ```text
-http://localhost:3000
+ http://localhost:3304
 ```
 
 ## Project Structure
@@ -39,12 +40,18 @@ internet-bank/
 ├── package.json
 └── README.md
 ```
+
 ## Data model
 
 A transaction as stored on disk:
 
 ```ts
-{ id: number; date: string; recipient: string; amount: number }
+{
+  id: number;
+  date: string;
+  recipient: string;
+  amount: number;
+}
 ```
 
 - `date` — calendar date as `YYYY-MM-DD`.
@@ -53,14 +60,20 @@ A transaction as stored on disk:
 The API adds a derived `classification` field to every transaction it returns:
 
 ```json
-{ "id": 1, "date": "2026-09-01", "recipient": "ICA", "amount": -350, "classification": "Food" }
+{
+  "id": 1,
+  "date": "2026-09-01",
+  "recipient": "ICA",
+  "amount": -350,
+  "classification": "Food"
+}
 ```
 
 Incoming transactions (`amount > 0`) always get `"classification": null` — shown as `—` in the CLI.
 
 ## API reference
 
-Base URL: `http://localhost:3000` (or whatever `PORT`/`API_URL` you set).
+Base URL: ` http://localhost:3304` (or whatever `PORT`/`API_URL` you set).
 
 All request and response bodies are JSON. Errors are always shaped as:
 
@@ -68,14 +81,14 @@ All request and response bodies are JSON. Errors are always shaped as:
 { "error": "a human-readable message" }
 ```
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/transactions` | List transactions, optionally filtered by date (`?from=YYYY-MM-DD&to=YYYY-MM-DD`) |
-| GET | `/transactions/:id` | Get a single transaction |
-| POST | `/transactions` | Create a transaction |
-| PUT | `/transactions/:id` | Update a transaction (partial update) |
-| DELETE | `/transactions/:id` | Delete a transaction |
-| GET | `/classifications` | List the possible classification categories |
+| Method | Path                | Description                                                                       |
+| ------ | ------------------- | --------------------------------------------------------------------------------- |
+| GET    | `/transactions`     | List transactions, optionally filtered by date (`?from=YYYY-MM-DD&to=YYYY-MM-DD`) |
+| GET    | `/transactions/:id` | Get a single transaction                                                          |
+| POST   | `/transactions`     | Create a transaction                                                              |
+| PUT    | `/transactions/:id` | Update a transaction (partial update)                                             |
+| DELETE | `/transactions/:id` | Delete a transaction                                                              |
+| GET    | `/classifications`  | List the possible classification categories                                       |
 
 ### `GET /transactions`
 
@@ -87,6 +100,7 @@ Query parameters (both optional, both **inclusive**):
 - `to=YYYY-MM-DD` — only transactions on or before this date
 
 Behavior:
+
 - An invalid date format, or a date that isn't real (e.g. `2026-13-40`) → `400`.
 - `from` later than `to` → `400`.
 - A valid range with no matching transactions → `200` with `[]`.
@@ -143,16 +157,15 @@ Returns the fixed list of possible categories:
 ["Household", "Transport", "Food", "Entertainment", "Unknown"]
 ```
 
-
 ### HTTP status codes
 
-| Code | Meaning |
-| --- | --- |
-| 200 | Successful GET, PUT, or DELETE |
-| 201 | Transaction created |
-| 400 | Invalid input: bad id, bad/missing fields, bad dates, malformed JSON body |
-| 404 | Transaction not found, or unknown route |
-| 500 | Unexpected server error |
+| Code | Meaning                                                                   |
+| ---- | ------------------------------------------------------------------------- |
+| 200  | Successful GET, PUT, or DELETE                                            |
+| 201  | Transaction created                                                       |
+| 400  | Invalid input: bad id, bad/missing fields, bad dates, malformed JSON body |
+| 404  | Transaction not found, or unknown route                                   |
+| 500  | Unexpected server error                                                   |
 
 ## How classification works
 
@@ -171,15 +184,15 @@ To add or change recipient categories, edit `data/classifications.json`:
 
 Run `npm run cli` (with the API already running) to get an interactive menu, navigated with the arrow keys and Enter:
 
-| Option | What it does |
-| --- | --- |
-| View transactions | Lists all transactions in a table |
-| View one transaction | Prompts for an id, shows its full details |
-| Add transaction | Prompts for date, recipient, and amount, then creates it |
-| Update transaction | Prompts for an id, then walks through each field pre-filled with its current value — press Enter to keep it |
-| Delete transaction | Prompts for an id, shows the transaction, asks for confirmation before deleting |
-| Filter transactions by date | Prompts for a `from` and `to` date (either can be left blank), then lists matches |
-| Exit | Quits the app |
+| Option                      | What it does                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| View transactions           | Lists all transactions in a table                                                                           |
+| View one transaction        | Prompts for an id, shows its full details                                                                   |
+| Add transaction             | Prompts for date, recipient, and amount, then creates it                                                    |
+| Update transaction          | Prompts for an id, then walks through each field pre-filled with its current value — press Enter to keep it |
+| Delete transaction          | Prompts for an id, shows the transaction, asks for confirmation before deleting                             |
+| Filter transactions by date | Prompts for a `from` and `to` date (either can be left blank), then lists matches                           |
+| Exit                        | Quits the app                                                                                               |
 
 Input is validated as you type (dates, non-empty recipient, non-zero numeric amount), and any error returned by the API is printed. Ctrl+C exits cleanly from anywhere in the menu.
 
