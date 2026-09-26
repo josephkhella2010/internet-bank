@@ -219,7 +219,13 @@ app.get("/classifications", (req, res) => {
       });
     }
 
-    return res.status(200).json(result.data);
+    return res.status(200).json([
+      "Household",
+      "Transport",
+      "Food",
+      "Entertainment",
+      "Unknown",
+    ]);
   } catch (error: unknown) {
     return res.status(500).json({
       message: "Something went wrong",
