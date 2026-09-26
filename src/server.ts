@@ -290,6 +290,46 @@ app.get("/filter", (req, res) => {
   }
 });
 
+app.get("/spending", (req, res) => {
+  try {
+    const categories = [
+      "Household",
+      "Transport",
+      "Food",
+      "Entertainment",
+      "Unknown",
+    ];
+
+    const spending: { classification: string; total: number }[] = [];
+
+    for (const category of categories) {
+      let total = 0;
+
+      for (const tra of transactions) {
+        const classified = addClassification(tra);
+
+        if (classified.classification === category) {
+          total = total + Math.abs(tra.amount);
+        }
+      }
+
+      spending.push({
+        classification: category,
+        total,
+      });
+    }
+
+    return res.status(200).json({
+      message: "spending per category",
+      spending,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({
+      message: "Something went wrong with spending",
+    });
+  }
+});
+
 // Start server
 
 app.listen(PORT, () => {
