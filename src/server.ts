@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import dotenv from "dotenv";
+import pool from "./db.ts";
 import { classifications, transaction } from "./data.js";
 
 dotenv.config();
