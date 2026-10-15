@@ -3,39 +3,12 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import pool from "./db.ts";
 
-
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
-
-
-async function addClassification(tra: { recipient: string; amount: number }) {
-  let classification: string | null = null;
-    console.log(tra.recipient)
-  if (tra.amount < 0) {
-    const result = await pool.query(
-      `SELECT classification
-       FROM classifications
-       WHERE LOWER(recipient) = LOWER($1)
-       LIMIT 1`,
-      [tra.recipient]
-    );
-  console.log(result.rows)
-    classification =
-      result.rows.length > 0
-        ? result.rows[0].classification
-        : "Unknown";
-  }
-
-  return {
-    ...tra,
-    classification,
-  };
-}
 
 // Zod schemas
 
@@ -47,6 +20,13 @@ const transactionSchema = z.object({
   recipient: z.string().min(1),
   amount: z.number(),
 });
+const transactionWithClassificationSchema = transactionSchema.extend({
+  classification: z.string().nullable(),
+});
+
+const transactionsWithClassificationSchema = z.array(
+  transactionWithClassificationSchema,
+);
 
 const transactionsSchema = z.array(transactionSchema);
 
@@ -67,12 +47,28 @@ const classificationsSchema = z.array(classificationSchema);
 
 // Get all transactions
 
-app.get("/transactions", async(req, res) => {
+app.get("/transactions", async (req, res) => {
   try {
-     const result = await pool.query("SELECT id, TO_CHAR(date, 'YYYY-MM-DD') AS date, recipient, amount FROM transactions");
+    const result = await pool.query(`
+      SELECT
+        t.id,
+        TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+        t.recipient,
+        t.amount,
+        CASE
+          WHEN t.amount < 0
+            THEN COALESCE(c.classification, 'Unknown')
+          ELSE NULL
+        END AS classification
+      FROM transactions t
+      LEFT JOIN classifications c
+        ON LOWER(c.recipient) = LOWER(t.recipient)
+      ORDER BY t.date DESC
+    `);
+    const parsed = transactionsWithClassificationSchema.safeParse(result.rows);
     return res.status(200).json({
       message: "successfully get all transtions",
-      translations: await Promise.all(result.rows.map((tra) => addClassification(tra))),
+      translations: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -85,15 +81,35 @@ app.get("/transactions", async(req, res) => {
 app.get("/transactions/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const result = await pool.query("SELECT id, TO_CHAR(date, 'YYYY-MM-DD') AS date, recipient, amount  FROM transactions WHERE id = $1", [id]);
+    const result = await pool.query(
+      `
+      SELECT
+        t.id,
+        TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+        t.recipient,
+        t.amount,
+        CASE
+          WHEN t.amount < 0
+            THEN COALESCE(c.classification, 'Unknown')
+          ELSE NULL
+        END AS classification
+      FROM transactions t
+      LEFT JOIN classifications c
+        ON LOWER(c.recipient) = LOWER(t.recipient)
+      WHERE t.id = $1
+      ORDER BY t.date DESC
+    `,
+      [id],
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({
         message: "Transaction not found",
       });
     }
 
-    const parsed = transactionSchema.safeParse(result.rows[0]);
-
+    const parsed = transactionWithClassificationSchema.safeParse(
+      result.rows[0],
+    );
 
     if (!parsed.success) {
       return res.status(400).json({
@@ -104,7 +120,7 @@ app.get("/transactions/:id", async (req, res) => {
 
     return res.status(200).json({
       message: "Successfully retrieved transaction",
-      transaction: await addClassification(parsed.data),
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -126,30 +142,46 @@ app.post("/transactions", async (req, res) => {
       });
     }
     const { date, recipient, amount } = result.data;
-  
+
     const queryResult = await pool.query(
-      `INSERT INTO transactions (date, recipient, amount)
-       VALUES ($1, $2, $3)
-       RETURNING id, TO_CHAR(date, 'YYYY-MM-DD') AS date, recipient, amount`,
-      [date, recipient, amount]
+      `WITH new_transaction AS (
+     INSERT INTO transactions (date, recipient, amount)
+     VALUES ($1, $2, $3)
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM new_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [date, recipient, amount],
     );
 
-    const parsed = transactionSchema.safeParse(queryResult.rows[0]);
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
     if (!parsed.success) {
-  console.error("Invalid transaction returned from database:", parsed.error);
+      console.error(
+        "Invalid transaction returned from database:",
+        parsed.error,
+      );
 
-  return res.status(500).json({
-    message: "Invalid transaction data returned from database",
-  });
-}
-
-    const newTransaction = await addClassification(parsed.data);
+      return res.status(500).json({
+        message: "Invalid transaction data returned from database",
+      });
+    }
 
     return res.status(201).json({
       message: "Successfully added transaction",
-      transaction: newTransaction,
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
+    console.error("Something went wrong with post request transaction:", error);
+
     return res.status(500).json({
       message: "Something went wrong with post request transtion",
     });
@@ -162,32 +194,48 @@ app.put("/transactions/:id", async (req, res) => {
     const fields = createTransactionSchema.safeParse(req.body);
     const id = Number(req.params.id);
 
-    
     if (!fields.success) {
       return res.status(400).json({
         message: "Invalid transaction data",
         error: fields.error,
       });
     }
-   const { date, recipient, amount } = fields.data;
+    const { date, recipient, amount } = fields.data;
 
     const queryResult = await pool.query(
-      `UPDATE transactions
-       SET date = $1, recipient = $2, amount = $3
-       WHERE id = $4
-       RETURNING id, TO_CHAR(date, 'YYYY-MM-DD') AS date, recipient, amount`,
-      [date, recipient, amount, id]
+      `WITH updated_transaction AS (
+     UPDATE transactions
+     SET date = $1,
+         recipient = $2,
+         amount = $3
+     WHERE id = $4
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM updated_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [date, recipient, amount, id],
     );
- if (queryResult.rows.length === 0) {
+    if (queryResult.rows.length === 0) {
       return res.status(404).json({
         message: "Transaction not found",
       });
     }
 
-
-    const parsed = transactionSchema.safeParse(queryResult.rows[0]);
-if (!parsed.success) {
-      console.error("Invalid transaction returned from database:", parsed.error);
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
+    if (!parsed.success) {
+      console.error(
+        "Invalid transaction returned from database:",
+        parsed.error,
+      );
 
       return res.status(500).json({
         message: "Invalid transaction data returned from database",
@@ -196,7 +244,7 @@ if (!parsed.success) {
 
     return res.status(200).json({
       message: "successfully updataed transtions",
-      transtion:  await addClassification(parsed.data)
+      transtion: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -210,24 +258,38 @@ app.delete("/transactions/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-      if (!Number.isInteger(id) || id <= 0) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         message: "Invalid transaction ID",
       });
     }
 
     const queryResult = await pool.query(
-      "DELETE FROM transactions WHERE id = $1 RETURNING id, TO_CHAR(date, 'YYYY-MM-DD') AS date, recipient, amount",
-      [id]
+      `WITH deleted_transaction AS (
+     DELETE FROM transactions
+     WHERE id = $1
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM deleted_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [id],
     );
-
     if (queryResult.rows.length === 0) {
       return res.status(404).json({
         message: "Transaction not found",
       });
     }
 
-    const parsed = transactionSchema.safeParse(queryResult.rows[0]);
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
 
     if (!parsed.success) {
       console.error("Invalid deleted transaction data:", parsed.error);
@@ -239,10 +301,10 @@ app.delete("/transactions/:id", async (req, res) => {
 
     return res.status(200).json({
       message: "Successfully deleted transaction",
-      transaction: await addClassification(parsed.data),
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
-    console.error("Invalid deleted transaction data:", error)
+    console.error("Invalid deleted transaction data:", error);
     return res.status(500).json({
       message: "Something went wrong with delete request transaction",
     });
@@ -253,12 +315,12 @@ app.delete("/transactions/:id", async (req, res) => {
 
 app.get("/classifications", async (req, res) => {
   try {
-     const queryResult = await pool.query(
-      "SELECT recipient, classification FROM classifications ORDER BY id"
+    const queryResult = await pool.query(
+      "SELECT recipient, classification FROM classifications ORDER BY id",
     );
- const result = classificationsSchema.safeParse(queryResult.rows);
+    const result = classificationsSchema.safeParse(queryResult.rows);
 
-   if (!result.success) {
+    if (!result.success) {
       return res.status(500).json({
         message: "Invalid classification data returned from database",
         error: result.error.flatten(),
@@ -301,22 +363,26 @@ app.get("/filter", async (req, res) => {
         message: "From date cannot be after to date",
       });
     }
-
     const queryResult = await pool.query(
-  `SELECT 
-  id,
-     TO_CHAR(date, 'YYYY-MM-DD') AS date,
-     recipient,
-     amount
-   FROM transactions
-   WHERE date BETWEEN $1::date AND $2::date
-   ORDER BY date ASC`,
-  [from, to]
-);  
-console.log(queryResult.rows)
-    const parsed = transactionsSchema.safeParse(queryResult.rows);
+      `SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM transactions t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)
+   WHERE t.date BETWEEN $1::date AND $2::date
+   ORDER BY t.date ASC`,
+      [from, to],
+    );
+    console.log(queryResult.rows);
+    const parsed = transactionsWithClassificationSchema.safeParse(
+      queryResult.rows,
+    );
 
-if (!parsed.success) {
+    if (!parsed.success) {
       console.error("Invalid transaction data:", parsed.error);
 
       return res.status(500).json({
@@ -326,9 +392,8 @@ if (!parsed.success) {
 
     return res.status(200).json({
       message: "Successfully filtered transactions",
-      transactions: await Promise.all(parsed.data.map((tra) => addClassification(tra))),
+      transactions: parsed.data,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: "Something went wrong while filtering transactions",
@@ -349,7 +414,7 @@ app.get("/spending", async (req, res) => {
        LEFT JOIN classifications c
          ON LOWER(c.recipient) = LOWER(t.recipient)
        GROUP BY COALESCE(c.classification, 'Unknown')
-       ORDER BY classification`
+       ORDER BY classification`,
     );
 
     const categories = [
@@ -361,14 +426,10 @@ app.get("/spending", async (req, res) => {
     ];
 
     const totals = new Map<string, number>(
-      queryResult.rows.map((row) => [
-        row.classification,
-        Number(row.total),
-      ])
+      queryResult.rows.map((row) => [row.classification, Number(row.total)]),
     );
 
-
-     const spending = categories.map((classification) => ({
+    const spending = categories.map((classification) => ({
       classification,
       total: totals.get(classification) ?? 0,
     }));
