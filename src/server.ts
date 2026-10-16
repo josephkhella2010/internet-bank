@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import dotenv from "dotenv";
-import { classifications, transaction } from "./data.js";
+import pool from "./db.ts";
 
 dotenv.config();
 
@@ -10,39 +10,23 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-let transactions = transaction;
-
-function addClassification(tra: { recipient: string; amount: number }) {
-  let classification = null;
-
-  if (tra.amount < 0) {
-    const match = classifications.find((item) => {
-      return item.recipient.toLowerCase() === tra.recipient.toLowerCase();
-    });
-
-    if (match) {
-      classification = match.classification;
-    } else {
-      classification = "Unknown";
-    }
-  }
-
-  return {
-    ...tra,
-    classification,
-  };
-}
-
 // Zod schemas
 
 // transationSchema
 
 const transactionSchema = z.object({
   id: z.number(),
-  date: z.string(),
+  date: z.iso.date(),
   recipient: z.string().min(1),
   amount: z.number(),
 });
+const transactionWithClassificationSchema = transactionSchema.extend({
+  classification: z.string().nullable(),
+});
+
+const transactionsWithClassificationSchema = z.array(
+  transactionWithClassificationSchema,
+);
 
 const transactionsSchema = z.array(transactionSchema);
 
@@ -63,20 +47,28 @@ const classificationsSchema = z.array(classificationSchema);
 
 // Get all transactions
 
-app.get("/transactions", (req, res) => {
+app.get("/transactions", async (req, res) => {
   try {
-    const result = transactionsSchema.safeParse(transactions);
-
-    if (!result.success) {
-      return res.status(400).json({
-        message: "Invalid transaction data",
-        error: result.error,
-      });
-    }
-
+    const result = await pool.query(`
+      SELECT
+        t.id,
+        TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+        t.recipient,
+        t.amount,
+        CASE
+          WHEN t.amount < 0
+            THEN COALESCE(c.classification, 'Unknown')
+          ELSE NULL
+        END AS classification
+      FROM transactions t
+      LEFT JOIN classifications c
+        ON LOWER(c.recipient) = LOWER(t.recipient)
+      ORDER BY t.date DESC
+    `);
+    const parsed = transactionsWithClassificationSchema.safeParse(result.rows);
     return res.status(200).json({
       message: "successfully get all transtions",
-      translations: result.data.map((tra) => addClassification(tra)),
+      translations: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -86,33 +78,49 @@ app.get("/transactions", (req, res) => {
 });
 
 // Get transaction by ID
-app.get("/transactions/:id", (req, res) => {
+app.get("/transactions/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-
-    const findId = transactions.find((tra) => Number(tra.id) === id);
-
-    const result = transactionSchema.safeParse(findId);
-    const results = transactionsSchema.safeParse(transactions);
-
-    if (!result.success) {
-      return res.status(400).json({
-        message: "Invalid transaction data",
-        error: result.error,
+    const result = await pool.query(
+      `
+      SELECT
+        t.id,
+        TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+        t.recipient,
+        t.amount,
+        CASE
+          WHEN t.amount < 0
+            THEN COALESCE(c.classification, 'Unknown')
+          ELSE NULL
+        END AS classification
+      FROM transactions t
+      LEFT JOIN classifications c
+        ON LOWER(c.recipient) = LOWER(t.recipient)
+      WHERE t.id = $1
+      ORDER BY t.date DESC
+    `,
+      [id],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Transaction not found",
       });
     }
 
-    if (!results.success) {
+    const parsed = transactionWithClassificationSchema.safeParse(
+      result.rows[0],
+    );
+
+    if (!parsed.success) {
       return res.status(400).json({
-        message: "Invalid transactions data",
-        error: results.error,
+        message: "Invalid transaction data",
+        error: parsed.error.flatten(),
       });
     }
 
     return res.status(200).json({
-      message: "successfully get transtion",
-      transtion: addClassification(result.data),
-      transtions: results.data.map((tra) => addClassification(tra)),
+      message: "Successfully retrieved transaction",
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -123,10 +131,9 @@ app.get("/transactions/:id", (req, res) => {
 
 // post transaction by ID
 
-app.post("/transactions/", (req, res) => {
+app.post("/transactions", async (req, res) => {
   try {
     const result = createTransactionSchema.safeParse(req.body);
-    const results = transactionsSchema.safeParse(transactions);
 
     if (!result.success) {
       return res.status(400).json({
@@ -134,18 +141,47 @@ app.post("/transactions/", (req, res) => {
         error: result.error,
       });
     }
-    const newTransaction = {
-      ...result.data,
-      id: transactions.length + 1,
-    };
-    transactions.push(newTransaction);
+    const { date, recipient, amount } = result.data;
+
+    const queryResult = await pool.query(
+      `WITH new_transaction AS (
+     INSERT INTO transactions (date, recipient, amount)
+     VALUES ($1, $2, $3)
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM new_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [date, recipient, amount],
+    );
+
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
+    if (!parsed.success) {
+      console.error(
+        "Invalid transaction returned from database:",
+        parsed.error,
+      );
+
+      return res.status(500).json({
+        message: "Invalid transaction data returned from database",
+      });
+    }
 
     return res.status(201).json({
-      message: "successfully added transtions",
-      transtion: addClassification(newTransaction),
-      transtions: results.data,
+      message: "Successfully added transaction",
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
+    console.error("Something went wrong with post request transaction:", error);
+
     return res.status(500).json({
       message: "Something went wrong with post request transtion",
     });
@@ -153,37 +189,62 @@ app.post("/transactions/", (req, res) => {
 });
 //  update put transaction by ID
 
-app.put("/transactions/:id", (req, res) => {
+app.put("/transactions/:id", async (req, res) => {
   try {
     const fields = createTransactionSchema.safeParse(req.body);
     const id = Number(req.params.id);
 
-    const findIndex = transactions.findIndex((tra) => Number(tra.id) === id);
-
-    if (findIndex === -1) {
-      return res.status(404).json({
-        message: "Transaction not found",
-      });
-    }
     if (!fields.success) {
       return res.status(400).json({
         message: "Invalid transaction data",
         error: fields.error,
       });
     }
-    transactions[findIndex] = {
-      id: transactions[findIndex]!.id,
-      date: fields.data.date,
-      recipient: fields.data.recipient,
-      amount: fields.data.amount,
-    };
+    const { date, recipient, amount } = fields.data;
 
-    const results = transactionsSchema.safeParse(transactions);
+    const queryResult = await pool.query(
+      `WITH updated_transaction AS (
+     UPDATE transactions
+     SET date = $1,
+         recipient = $2,
+         amount = $3
+     WHERE id = $4
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM updated_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [date, recipient, amount, id],
+    );
+    if (queryResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Transaction not found",
+      });
+    }
+
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
+    if (!parsed.success) {
+      console.error(
+        "Invalid transaction returned from database:",
+        parsed.error,
+      );
+
+      return res.status(500).json({
+        message: "Invalid transaction data returned from database",
+      });
+    }
 
     return res.status(200).json({
       message: "successfully updataed transtions",
-      transtion: addClassification(transactions[findIndex]),
-      transtions: results.data,
+      transtion: parsed.data,
     });
   } catch (error: unknown) {
     return res.status(500).json({
@@ -193,39 +254,57 @@ app.put("/transactions/:id", (req, res) => {
 });
 // delete transaction by ID
 
-app.delete("/transactions/:id", (req, res) => {
+app.delete("/transactions/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    const findId = transactions.find((tra) => Number(tra.id) === id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        message: "Invalid transaction ID",
+      });
+    }
 
-    if (!findId) {
+    const queryResult = await pool.query(
+      `WITH deleted_transaction AS (
+     DELETE FROM transactions
+     WHERE id = $1
+     RETURNING id, date, recipient, amount
+   )
+   SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM deleted_transaction t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)`,
+      [id],
+    );
+    if (queryResult.rows.length === 0) {
       return res.status(404).json({
         message: "Transaction not found",
       });
     }
 
-    const result = transactionSchema.safeParse(findId);
+    const parsed = transactionWithClassificationSchema.safeParse(
+      queryResult.rows[0],
+    );
 
-    if (!result.success) {
-      return res.status(400).json({
-        message: "Invalid transaction data",
-        error: result.error,
+    if (!parsed.success) {
+      console.error("Invalid deleted transaction data:", parsed.error);
+
+      return res.status(500).json({
+        message: "Invalid transaction data returned from database",
       });
     }
 
-    const filteredTranstion = transactions.filter(
-      (tra) => Number(tra.id) !== id,
-    );
-
-    transactions = filteredTranstion;
-
     return res.status(200).json({
-      message: "successfully deleted transaction",
-      transaction: addClassification(result.data),
-      transactions: transactions.map((tra) => addClassification(tra)),
+      message: "Successfully deleted transaction",
+      transaction: parsed.data,
     });
   } catch (error: unknown) {
+    console.error("Invalid deleted transaction data:", error);
     return res.status(500).json({
       message: "Something went wrong with delete request transaction",
     });
@@ -234,20 +313,24 @@ app.delete("/transactions/:id", (req, res) => {
 
 // Get all classifications
 
-app.get("/classifications", (req, res) => {
+app.get("/classifications", async (req, res) => {
   try {
-    const result = classificationsSchema.safeParse(classifications);
+    const queryResult = await pool.query(
+      "SELECT recipient, classification FROM classifications ORDER BY id",
+    );
+    const result = classificationsSchema.safeParse(queryResult.rows);
 
     if (!result.success) {
-      return res.status(400).json({
-        message: "Invalid classification data",
-        transtions: result.data,
+      return res.status(500).json({
+        message: "Invalid classification data returned from database",
+        error: result.error.flatten(),
       });
     }
 
-    return res
-      .status(200)
-      .json(["Household", "Transport", "Food", "Entertainment", "Unknown"]);
+    return res.status(200).json({
+      message: "Successfully retrieved classifications",
+      classifications: result.data,
+    });
   } catch (error: unknown) {
     return res.status(500).json({
       message: "Something went wrong",
@@ -257,7 +340,7 @@ app.get("/classifications", (req, res) => {
 
 // Filter transactions by date
 
-app.get("/filter", (req, res) => {
+app.get("/filter", async (req, res) => {
   try {
     const { from, to } = req.query;
 
@@ -280,16 +363,36 @@ app.get("/filter", (req, res) => {
         message: "From date cannot be after to date",
       });
     }
+    const queryResult = await pool.query(
+      `SELECT
+     t.id,
+     TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
+     t.recipient,
+     t.amount,
+     c.classification
+   FROM transactions t
+   LEFT JOIN classifications c
+     ON LOWER(c.recipient) = LOWER(t.recipient)
+   WHERE t.date BETWEEN $1::date AND $2::date
+   ORDER BY t.date ASC`,
+      [from, to],
+    );
+    console.log(queryResult.rows);
+    const parsed = transactionsWithClassificationSchema.safeParse(
+      queryResult.rows,
+    );
 
-    const filteredTransactions = transactions.filter((tra) => {
-      return tra.date >= from && tra.date <= to;
-    });
+    if (!parsed.success) {
+      console.error("Invalid transaction data:", parsed.error);
 
-    console.log("Filtered:", filteredTransactions);
+      return res.status(500).json({
+        message: "Invalid transaction data returned from database",
+      });
+    }
 
     return res.status(200).json({
       message: "Successfully filtered transactions",
-      transactions: filteredTransactions.map((tra) => addClassification(tra)),
+      transactions: parsed.data,
     });
   } catch (error) {
     return res.status(500).json({
@@ -298,8 +401,22 @@ app.get("/filter", (req, res) => {
   }
 });
 
-app.get("/spending", (req, res) => {
+app.get("/spending", async (req, res) => {
   try {
+    const queryResult = await pool.query(
+      `SELECT
+         COALESCE(c.classification, 'Unknown') AS classification,
+         COALESCE(
+           SUM(ABS(t.amount)) FILTER (WHERE t.amount < 0),
+           0
+         ) AS total
+       FROM transactions t
+       LEFT JOIN classifications c
+         ON LOWER(c.recipient) = LOWER(t.recipient)
+       GROUP BY COALESCE(c.classification, 'Unknown')
+       ORDER BY classification`,
+    );
+
     const categories = [
       "Household",
       "Transport",
@@ -308,27 +425,17 @@ app.get("/spending", (req, res) => {
       "Unknown",
     ];
 
-    const spending: { classification: string; total: number }[] = [];
+    const totals = new Map<string, number>(
+      queryResult.rows.map((row) => [row.classification, Number(row.total)]),
+    );
 
-    for (const category of categories) {
-      let total = 0;
-
-      for (const tra of transactions) {
-        const classified = addClassification(tra);
-
-        if (classified.classification === category) {
-          total = total + Math.abs(tra.amount);
-        }
-      }
-
-      spending.push({
-        classification: category,
-        total,
-      });
-    }
+    const spending = categories.map((classification) => ({
+      classification,
+      total: totals.get(classification) ?? 0,
+    }));
 
     return res.status(200).json({
-      message: "spending per category",
+      message: "Spending per category",
       spending,
     });
   } catch (error: unknown) {
