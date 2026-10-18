@@ -60,6 +60,16 @@ export const dateFilterQuerySchema = z
     path: ["from"],
   });
 
+// classification enum (all categories that exist)
+
+export const classificationEnum = z.enum([
+  "Household",
+  "Transport",
+  "Food",
+  "Entertainment",
+  "Unknown",
+]);
+
 // classification schema
 
 export const classificationSchema = z.object({
