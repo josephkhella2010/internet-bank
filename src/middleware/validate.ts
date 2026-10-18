@@ -17,7 +17,13 @@ export function validate(schema: ZodType, part: RequestPart) {
         message: issue.message,
       }));
 
-      const messages = errors.map((error) => error.message);
+      // put the field name first so you know what is wrong, like "to: ..."
+      const messages = errors.map((error) => {
+        if (error.field) {
+          return error.field + ": " + error.message;
+        }
+        return error.message;
+      });
 
       return res.status(400).json({
         message: "Invalid input: " + messages.join(", "),
@@ -32,4 +38,21 @@ export function validate(schema: ZodType, part: RequestPart) {
 
     next();
   };
+}
+
+// if the json in the body is broken, express.json() throws an error
+// we catch it here and send 400 json instead of the html error page
+export function jsonErrorHandler(
+  error: unknown,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (error instanceof SyntaxError) {
+    return res.status(400).json({
+      message: "Invalid input: the body is not valid JSON",
+    });
+  }
+
+  next(error);
 }
