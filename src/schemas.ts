@@ -20,11 +20,45 @@ export const transactionsWithClassificationSchema = z.array(
 
 export const transactionsSchema = z.array(transactionSchema);
 
-export const createTransactionSchema = z.object({
-  date: z.string(),
-  recipient: z.string().min(1),
-  amount: z.number(),
+// date schema (used in body and in the date filter)
+
+const dateSchema = z.iso.date({
+  error: "Date must be a real date in YYYY-MM-DD format",
 });
+
+// body schema for post and put
+
+export const createTransactionSchema = z.object({
+  date: dateSchema,
+  recipient: z
+    .string({ error: "Recipient must be a text" })
+    .trim()
+    .min(1, "Recipient is required"),
+  amount: z
+    .number({ error: "Amount must be a number" })
+    .refine((value) => value !== 0, { message: "Amount cannot be 0" }),
+});
+
+// params schema for /transactions/:id
+
+export const idParamsSchema = z.object({
+  id: z.coerce
+    .number({ error: "Id must be a number" })
+    .int("Id must be a whole number")
+    .positive("Id must be bigger than 0"),
+});
+
+// query schema for the date filter (/filter?from=...&to=...)
+
+export const dateFilterQuerySchema = z
+  .object({
+    from: dateSchema,
+    to: dateSchema,
+  })
+  .refine((data) => data.from <= data.to, {
+    message: "From date cannot be after to date",
+    path: ["from"],
+  });
 
 // classification schema
 
