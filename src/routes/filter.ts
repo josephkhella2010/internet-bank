@@ -1,34 +1,19 @@
 import express from "express";
 import pool from "../db.ts";
-import { transactionsWithClassificationSchema } from "../schemas.ts";
+import {
+  dateFilterQuerySchema,
+  transactionsWithClassificationSchema,
+} from "../schemas.ts";
+import { validate } from "../middleware/validate.ts";
 
 const router = express.Router();
 
 // Filter transactions by date
 
-router.get("/", async (req, res) => {
+router.get("/", validate(dateFilterQuerySchema, "query"), async (req, res) => {
   try {
     const { from, to } = req.query;
 
-    if (typeof from !== "string" || typeof to !== "string") {
-      return res.status(400).json({
-        message: "From date and to date are required",
-      });
-    }
-
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-
-    if (!dateRegex.test(from) || !dateRegex.test(to)) {
-      return res.status(400).json({
-        message: "Date must be in YYYY-MM-DD format",
-      });
-    }
-
-    if (from > to) {
-      return res.status(400).json({
-        message: "From date cannot be after to date",
-      });
-    }
     const queryResult = await pool.query(
       `SELECT
      t.id,

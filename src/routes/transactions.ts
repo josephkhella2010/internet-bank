@@ -2,9 +2,11 @@ import express from "express";
 import pool from "../db.ts";
 import {
   createTransactionSchema,
+  idParamsSchema,
   transactionWithClassificationSchema,
   transactionsWithClassificationSchema,
 } from "../schemas.ts";
+import { validate } from "../middleware/validate.ts";
 
 const router = express.Router();
 
@@ -41,7 +43,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get transaction by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", validate(idParamsSchema, "params"), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const result = await pool.query(
@@ -94,17 +96,9 @@ router.get("/:id", async (req, res) => {
 
 // post transaction by ID
 
-router.post("/", async (req, res) => {
+router.post("/", validate(createTransactionSchema, "body"), async (req, res) => {
   try {
-    const result = createTransactionSchema.safeParse(req.body);
-
-    if (!result.success) {
-      return res.status(400).json({
-        message: "Invalid transaction data",
-        error: result.error,
-      });
-    }
-    const { date, recipient, amount } = result.data;
+    const { date, recipient, amount } = req.body;
 
     const queryResult = await pool.query(
       `WITH new_transaction AS (
@@ -152,18 +146,10 @@ router.post("/", async (req, res) => {
 });
 //  update put transaction by ID
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", validate(idParamsSchema, "params"), validate(createTransactionSchema, "body"), async (req, res) => {
   try {
-    const fields = createTransactionSchema.safeParse(req.body);
     const id = Number(req.params.id);
-
-    if (!fields.success) {
-      return res.status(400).json({
-        message: "Invalid transaction data",
-        error: fields.error,
-      });
-    }
-    const { date, recipient, amount } = fields.data;
+    const { date, recipient, amount } = req.body;
 
     const queryResult = await pool.query(
       `WITH updated_transaction AS (
@@ -217,15 +203,9 @@ router.put("/:id", async (req, res) => {
 });
 // delete transaction by ID
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", validate(idParamsSchema, "params"), async (req, res) => {
   try {
     const id = Number(req.params.id);
-
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({
-        message: "Invalid transaction ID",
-      });
-    }
 
     const queryResult = await pool.query(
       `WITH deleted_transaction AS (
