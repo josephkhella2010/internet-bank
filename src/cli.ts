@@ -1,6 +1,7 @@
+import "dotenv/config";
 import { select, input, confirm } from "@inquirer/prompts";
 
-const API_URL = "http://localhost:3304";
+const API_URL = process.env.API_URL ?? "http://localhost:3304";
 
 // Types
 
@@ -186,11 +187,14 @@ async function addTransaction(): Promise<void> {
     const data: ApiResponse = await response.json();
 
     if (!response.ok) {
-      console.log(`\n❌ ${data.message ?? "Could not create transaction"}\n`);
+      console.log(
+        `\n❌ HTTP ${response.status}: ${
+          data.message ?? "Could not create transaction"
+        }\n`,
+      );
 
       return;
     }
-
     const transaction = data.transaction ?? data.transtion;
 
     console.log("\n✅ Transaction created successfully!\n");
@@ -289,7 +293,11 @@ async function updateTransaction(): Promise<void> {
     const data: ApiResponse = await response.json();
 
     if (!response.ok) {
-      console.log(`\n❌ ${data.message ?? "Could not update transaction"}\n`);
+      console.log(
+        `\n❌ HTTP ${response.status}: ${
+          data.message ?? "Could not update transaction"
+        }\n`,
+      );
 
       return;
     }
