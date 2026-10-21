@@ -205,3 +205,11 @@ To wipe your changes and restore the sample data (if this project is in a git re
 ```bash
 git checkout data/transactions.json
 ```
+
+## Security Check: SQL Injection
+
+- **Code review:** Checked `src/routes/transactions.ts`, `src/routes/filter.ts`, and `src/routes/spending.ts` for SQL queries built by concatenating user input.
+- **Protection:** The reviewed queries use parameterized SQL queries or fixed SQL statements.
+- **Test:** Sent a suspicious transaction ID to the API: `GET /transactions/1%20OR%201%3D1`
+- **Result:** The API returned `400 Bad Request` with the message `Id must be a number`.
+- **Conclusion:** The API rejected the invalid ID. The reviewed routes use safe SQL parameterization where user input is involved.
