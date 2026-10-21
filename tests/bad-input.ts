@@ -31,19 +31,31 @@ const tests: TestCase[] = [
     name: "date does not exist",
     method: "POST",
     path: "/transactions",
-    body: JSON.stringify({ date: "2026-02-30", recipient: "ICA", amount: -100 }),
+    body: JSON.stringify({
+      date: "2026-02-30",
+      recipient: "ICA",
+      amount: -100,
+    }),
   },
   {
     name: "date wrong format",
     method: "POST",
     path: "/transactions",
-    body: JSON.stringify({ date: "20/09/2026", recipient: "ICA", amount: -100 }),
+    body: JSON.stringify({
+      date: "20/09/2026",
+      recipient: "ICA",
+      amount: -100,
+    }),
   },
   {
     name: "recipient only spaces",
     method: "POST",
     path: "/transactions",
-    body: JSON.stringify({ date: "2026-09-20", recipient: "   ", amount: -100 }),
+    body: JSON.stringify({
+      date: "2026-09-20",
+      recipient: "   ",
+      amount: -100,
+    }),
   },
   {
     name: "recipient is a number",
@@ -55,7 +67,11 @@ const tests: TestCase[] = [
     name: "amount is text",
     method: "POST",
     path: "/transactions",
-    body: JSON.stringify({ date: "2026-09-20", recipient: "ICA", amount: "100" }),
+    body: JSON.stringify({
+      date: "2026-09-20",
+      recipient: "ICA",
+      amount: "100",
+    }),
   },
   {
     name: "amount is 0",
@@ -68,18 +84,28 @@ const tests: TestCase[] = [
     name: "broken json",
     method: "POST",
     path: "/transactions",
-    body: '{"date": "2026-09-20", ',
+    body: "{\"date\": \"2026-09-20\", ",
   },
 
   // PUT /transactions/:id
-  { name: "put with bad id", method: "PUT", path: "/transactions/abc", body: goodBody },
+  {
+    name: "put with bad id",
+    method: "PUT",
+    path: "/transactions/abc",
+    body: goodBody,
+  },
   {
     name: "put with bad body",
     method: "PUT",
     path: "/transactions/1",
     body: JSON.stringify({ amount: "lots" }),
   },
-  { name: "put with broken json", method: "PUT", path: "/transactions/1", body: "{{" },
+  {
+    name: "put with broken json",
+    method: "PUT",
+    path: "/transactions/1",
+    body: "{{",
+  },
 
   // DELETE /transactions/:id
   { name: "delete with text id", method: "DELETE", path: "/transactions/abc" },
@@ -87,7 +113,11 @@ const tests: TestCase[] = [
 
   // GET /filter
   { name: "filter without dates", method: "GET", path: "/filter" },
-  { name: "filter with only from", method: "GET", path: "/filter?from=2026-09-01" },
+  {
+    name: "filter with only from",
+    method: "GET",
+    path: "/filter?from=2026-09-01",
+  },
   {
     name: "filter with bad date",
     method: "GET",

@@ -7,7 +7,7 @@ const router = express.Router();
 // Spending per category
 // only outgoing transactions (amount < 0) are counted
 
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const queryResult = await pool.query(
       `SELECT
@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
       message: "Spending per category",
       spending,
     });
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     return res.status(500).json({
       message: "Something went wrong with spending",
     });

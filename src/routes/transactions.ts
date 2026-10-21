@@ -12,7 +12,7 @@ const router = express.Router();
 
 // Get all transactions
 
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -35,7 +35,7 @@ router.get("/", async (req, res) => {
       message: "successfully get all transtions",
       translations: parsed.data,
     });
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     return res.status(500).json({
       message: "Something went wrong with get all transtions",
     });
@@ -87,7 +87,7 @@ router.get("/:id", validate(idParamsSchema, "params"), async (req, res) => {
       message: "Successfully retrieved transaction",
       transaction: parsed.data,
     });
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     return res.status(500).json({
       message: "Something went wrong with get transtion",
     });
@@ -96,12 +96,15 @@ router.get("/:id", validate(idParamsSchema, "params"), async (req, res) => {
 
 // post transaction by ID
 
-router.post("/", validate(createTransactionSchema, "body"), async (req, res) => {
-  try {
-    const { date, recipient, amount } = req.body;
+router.post(
+  "/",
+  validate(createTransactionSchema, "body"),
+  async (req, res) => {
+    try {
+      const { date, recipient, amount } = req.body;
 
-    const queryResult = await pool.query(
-      `WITH new_transaction AS (
+      const queryResult = await pool.query(
+        `WITH new_transaction AS (
      INSERT INTO transactions (date, recipient, amount)
      VALUES ($1, $2, $3)
      RETURNING id, date, recipient, amount
@@ -115,44 +118,52 @@ router.post("/", validate(createTransactionSchema, "body"), async (req, res) => 
    FROM new_transaction t
    LEFT JOIN classifications c
      ON LOWER(c.recipient) = LOWER(t.recipient)`,
-      [date, recipient, amount],
-    );
+        [date, recipient, amount],
+      );
 
-    const parsed = transactionWithClassificationSchema.safeParse(
-      queryResult.rows[0],
-    );
-    if (!parsed.success) {
+      const parsed = transactionWithClassificationSchema.safeParse(
+        queryResult.rows[0],
+      );
+      if (!parsed.success) {
+        console.error(
+          "Invalid transaction returned from database:",
+          parsed.error,
+        );
+
+        return res.status(500).json({
+          message: "Invalid transaction data returned from database",
+        });
+      }
+
+      return res.status(201).json({
+        message: "Successfully added transaction",
+        transaction: parsed.data,
+      });
+    } catch (error: unknown) {
       console.error(
-        "Invalid transaction returned from database:",
-        parsed.error,
+        "Something went wrong with post request transaction:",
+        error,
       );
 
       return res.status(500).json({
-        message: "Invalid transaction data returned from database",
+        message: "Something went wrong with post request transtion",
       });
     }
-
-    return res.status(201).json({
-      message: "Successfully added transaction",
-      transaction: parsed.data,
-    });
-  } catch (error: unknown) {
-    console.error("Something went wrong with post request transaction:", error);
-
-    return res.status(500).json({
-      message: "Something went wrong with post request transtion",
-    });
-  }
-});
+  },
+);
 //  update put transaction by ID
 
-router.put("/:id", validate(idParamsSchema, "params"), validate(createTransactionSchema, "body"), async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const { date, recipient, amount } = req.body;
+router.put(
+  "/:id",
+  validate(idParamsSchema, "params"),
+  validate(createTransactionSchema, "body"),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { date, recipient, amount } = req.body;
 
-    const queryResult = await pool.query(
-      `WITH updated_transaction AS (
+      const queryResult = await pool.query(
+        `WITH updated_transaction AS (
      UPDATE transactions
      SET date = $1,
          recipient = $2,
@@ -169,38 +180,39 @@ router.put("/:id", validate(idParamsSchema, "params"), validate(createTransactio
    FROM updated_transaction t
    LEFT JOIN classifications c
      ON LOWER(c.recipient) = LOWER(t.recipient)`,
-      [date, recipient, amount, id],
-    );
-    if (queryResult.rows.length === 0) {
-      return res.status(404).json({
-        message: "Transaction not found",
-      });
-    }
-
-    const parsed = transactionWithClassificationSchema.safeParse(
-      queryResult.rows[0],
-    );
-    if (!parsed.success) {
-      console.error(
-        "Invalid transaction returned from database:",
-        parsed.error,
+        [date, recipient, amount, id],
       );
+      if (queryResult.rows.length === 0) {
+        return res.status(404).json({
+          message: "Transaction not found",
+        });
+      }
 
+      const parsed = transactionWithClassificationSchema.safeParse(
+        queryResult.rows[0],
+      );
+      if (!parsed.success) {
+        console.error(
+          "Invalid transaction returned from database:",
+          parsed.error,
+        );
+
+        return res.status(500).json({
+          message: "Invalid transaction data returned from database",
+        });
+      }
+
+      return res.status(200).json({
+        message: "successfully updataed transtions",
+        transtion: parsed.data,
+      });
+    } catch (_error: unknown) {
       return res.status(500).json({
-        message: "Invalid transaction data returned from database",
+        message: "Something went wrong with update request transtion",
       });
     }
-
-    return res.status(200).json({
-      message: "successfully updataed transtions",
-      transtion: parsed.data,
-    });
-  } catch (error: unknown) {
-    return res.status(500).json({
-      message: "Something went wrong with update request transtion",
-    });
-  }
-});
+  },
+);
 // delete transaction by ID
 
 router.delete("/:id", validate(idParamsSchema, "params"), async (req, res) => {
