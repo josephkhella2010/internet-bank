@@ -3,7 +3,7 @@ import { classificationEnum } from "../schemas.ts";
 
 const router = express.Router();
 
-// Get all classifications (from the zod enum)
+// Get all classifications  (from the zod enum)
 
 router.get("/", (_req, res) => {
   return res.status(200).json({
