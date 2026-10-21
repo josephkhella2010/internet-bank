@@ -45,7 +45,7 @@ router.get("/", validate(dateFilterQuerySchema, "query"), async (req, res) => {
       message: "Successfully filtered transactions",
       transactions: parsed.data,
     });
-  } catch (error) {
+  } catch (_error) {
     return res.status(500).json({
       message: "Something went wrong while filtering transactions",
     });

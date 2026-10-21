@@ -426,7 +426,7 @@ async function filterTransactions(): Promise<void> {
     }
 
     console.table(transactions);
-  } catch (error) {
+  } catch (_error) {
     console.log("\n❌ Could not connect to the API.");
     console.log("Make sure your Express server is running.\n");
   }

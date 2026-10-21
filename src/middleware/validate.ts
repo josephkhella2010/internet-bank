@@ -44,7 +44,7 @@ export function validate(schema: ZodType, part: RequestPart) {
 // we catch it here and send 400 json instead of the html error page
 export function jsonErrorHandler(
   error: unknown,
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ) {
